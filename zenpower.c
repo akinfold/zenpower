@@ -38,6 +38,8 @@
 #else
 #include <asm/amd_nb.h>          /* Linux до 6.16 */
 #endif
+#include <linux/version.h>
+#include <linux/compiler_attributes.h>   /* для макроса fallthrough на старых ядрах */
 
 MODULE_DESCRIPTION("AMD ZEN family CPU Sensors Driver");
 MODULE_AUTHOR("Ondrej Čerman");
@@ -212,7 +214,7 @@ static unsigned int get_ccd_temp(struct zenpower_data *data, u32 ccd_addr)
 	return (regval & 0xfff) * 125 - 305000;
 }
 
-int static debug_addrs_arr[] = {
+static int debug_addrs_arr[] = {
 	F17H_M01H_SVI + 0x8, F17H_M01H_SVI + 0xC, F17H_M01H_SVI + 0x10,
 	F17H_M01H_SVI + 0x14, 0x000598BC, 0x0005994C, F17H_M70H_CCD_TEMP(0),
 	F17H_M70H_CCD_TEMP(1), F17H_M70H_CCD_TEMP(2), F17H_M70H_CCD_TEMP(3),
@@ -283,7 +285,7 @@ static int zenpower_read(struct device *dev, enum hwmon_sensor_types type,
 			if (channel == 0)
 				return -EOPNOTSUPP;
 			channel -= 1;	// hwmon_in have different indexing, see note at zenpower_info
-							// fall through
+			fallthrough;	// fall through
 		// Power / Current
 		case hwmon_curr:
 		case hwmon_power:
@@ -453,7 +455,8 @@ static int zenpower_read_labels(struct device *dev,
 
 static void kernel_smn_read(struct pci_dev *pdev, u16 node_id, u32 address, u32 *regval)
 {
-	amd_smn_read(node_id, address, regval);
+	if (amd_smn_read(node_id, address, regval))
+    	*regval = 0;
 }
 
 // fallback method from k10temp
@@ -554,7 +557,13 @@ static int zenpower_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		if (pdev->vendor == misc->vendor && pdev->device == misc->device) {
 			data->kernel_smn_support = true;
 			data->read_amdsmn_addr = kernel_smn_read;
-			data->node_id = amd_pci_dev_to_node_id(pdev);
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+			    /* amd_pci_dev_to_node_id() removed; в апстрим-k10temp узел AMD-чипа теперь
+			       определяют по номеру PCI-bus устройства функции 0x18.x. */
+			    data->node_id = pdev->bus->number - 0x18;
+			#else
+			    data->node_id = amd_pci_dev_to_node_id(pdev);
+			#endif
 			break;
 		}
 	}
