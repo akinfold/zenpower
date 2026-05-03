@@ -558,9 +558,10 @@ static int zenpower_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			data->kernel_smn_support = true;
 			data->read_amdsmn_addr = kernel_smn_read;
 			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
-			    /* amd_pci_dev_to_node_id() removed; в апстрим-k10temp узел AMD-чипа теперь
-			       определяют по номеру PCI-bus устройства функции 0x18.x. */
-			    data->node_id = pdev->bus->number - 0x18;
+			    /* amd_pci_dev_to_node_id() removed in upstream Linux 6.16+. На consumer-Ryzen
+			       единственный CPU-узел, поэтому node_id всегда 0; multi-socket EPYC zenpower
+			       не поддерживает в принципе. */
+			    data->node_id = 0;
 			#else
 			    data->node_id = amd_pci_dev_to_node_id(pdev);
 			#endif
@@ -665,6 +666,7 @@ static const struct pci_device_id zenpower_id_table[] = {
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_17H_M30H_DF_F3) },
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_17H_M60H_DF_F3) },
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_17H_M70H_DF_F3) },
+	{ PCI_VDEVICE(AMD, 0x14f3) },   /* Phoenix 2 / Hawk Point Refresh — Ryzen 8000-series */
 	{}
 };
 MODULE_DEVICE_TABLE(pci, zenpower_id_table);
