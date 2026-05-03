@@ -33,7 +33,11 @@
 #include <linux/hwmon.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <asm/amd_nb.h>
+#if __has_include(<asm/amd/nb.h>)
+#include <asm/amd/nb.h>          /* Linux 6.16+ — заголовок переехал */
+#else
+#include <asm/amd_nb.h>          /* Linux до 6.16 */
+#endif
 
 MODULE_DESCRIPTION("AMD ZEN family CPU Sensors Driver");
 MODULE_AUTHOR("Ondrej Čerman");
